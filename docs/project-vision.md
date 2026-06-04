@@ -94,7 +94,3 @@ Build the most intelligent Salesforce optimization platform powered by AI.
 The platform should help organizations understand, improve, and scale their Salesforce environments efficiently.
 
 ---
-
-## Founder
-
-Jishnu Janardhanan
