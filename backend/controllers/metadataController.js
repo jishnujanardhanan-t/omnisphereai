@@ -105,3 +105,66 @@ exports.analyzeObject = async (req, res) => {
 
     }
 };
+
+exports.getRecommendations = async (req, res) => {
+
+    try {
+
+        const objectName = req.params.name;
+
+        const result =
+            await metadataService.getObjectFields(objectName);
+
+        const fields = result.result.records;
+
+        const recommendations = [];
+
+        const customFields =
+            fields.filter(field =>
+                field.QualifiedApiName.endsWith('__c')
+            );
+
+        const picklists =
+            fields.filter(field =>
+                field.DataType.includes('Picklist')
+            );
+
+        if (fields.length > 40) {
+            recommendations.push(
+                'Object contains more than 40 fields. Consider reviewing complexity.'
+            );
+        }
+
+        if (customFields.length > 0) {
+            recommendations.push(
+                `${customFields.length} custom fields detected. Ensure documentation is maintained.`
+            );
+        }
+
+        if (picklists.length > 5) {
+            recommendations.push(
+                'Large number of picklist fields detected. Review picklist governance.'
+            );
+        }
+
+        if (recommendations.length === 0) {
+            recommendations.push(
+                'No immediate metadata concerns detected.'
+            );
+        }
+
+        res.json({
+            success: true,
+            object: objectName,
+            recommendations
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+};

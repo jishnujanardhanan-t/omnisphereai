@@ -15,4 +15,9 @@ router.get(
     metadataController.analyzeObject
 );
 
+router.get(
+    '/metadata/object/:name/recommendations',
+    metadataController.getRecommendations
+);
+
 module.exports = router;
