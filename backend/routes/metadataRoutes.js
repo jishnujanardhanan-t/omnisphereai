@@ -10,4 +10,9 @@ router.get(
     metadataController.getObjectDetails
 );
 
+router.get(
+    '/metadata/object/:name/analysis',
+    metadataController.analyzeObject
+);
+
 module.exports = router;
