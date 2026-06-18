@@ -168,3 +168,83 @@ exports.getRecommendations = async (req, res) => {
 
     }
 };
+
+exports.getRelationships = async (req, res) => {
+
+    try {
+
+        const objectName = req.params.name;
+
+        const result =
+            await metadataService.getObjectFields(
+                objectName
+            );
+
+        const fields =
+            result.result.records;
+
+        const relationships = fields.filter(field =>
+        (
+            field.DataType.includes('Lookup(') &&
+            field.DataType !== 'Lookup()'
+        ) ||
+        field.DataType.includes('Hierarchy')
+    );
+
+        res.json({
+    success: true,
+    object: objectName,
+    relationshipCount: relationships.length,
+    relationships: relationships.map(
+        relationship => {
+
+            let relationshipType =
+                relationship.DataType;
+
+            let targetObject =
+                'Unknown';
+
+            if (
+                relationship.DataType.startsWith(
+                    'Lookup('
+                )
+            ) {
+
+                relationshipType = 'Lookup';
+
+                targetObject =
+                    relationship.DataType
+                        .replace('Lookup(', '')
+                        .replace(')', '');
+
+            } else if (
+                relationship.DataType ===
+                'Hierarchy'
+            ) {
+
+                relationshipType =
+                    'Hierarchy';
+
+                targetObject =
+                    objectName;
+            }
+
+            return {
+                field:
+                    relationship.QualifiedApiName,
+                relationshipType,
+                targetObject
+            };
+        }
+    )
+});
+
+    } catch (error) {
+
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+};

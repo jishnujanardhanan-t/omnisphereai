@@ -92,9 +92,30 @@ function getFieldCountForObject(objectName) {
     });
 }
 
+async function getRelationshipCountForObject(objectName) {
+
+    const result =
+        await getObjectFields(objectName);
+
+    const fields =
+        result.result.records;
+
+    const relationships =
+        fields.filter(field =>
+            (
+                field.DataType.includes('Lookup(') &&
+                field.DataType !== 'Lookup()'
+            ) ||
+            field.DataType.includes('Hierarchy')
+        );
+
+    return relationships.length;
+}
+
 module.exports = {
     getObjects,
     getObjectFields,
     getCustomObjects,
-    getFieldCountForObject
+    getFieldCountForObject,
+    getRelationshipCountForObject
 };

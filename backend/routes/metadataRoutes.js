@@ -20,4 +20,9 @@ router.get(
     metadataController.getRecommendations
 );
 
+router.get(
+    '/metadata/object/:name/relationships',
+    metadataController.getRelationships
+);
+
 module.exports = router;
