@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react';
+import './App.css';
 
 function App() {
 
   const [score, setScore] = useState(null);
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
 
   console.log('Starting fetch...');
+
+fetch('http://localhost:3000/org/summary')
+  .then(response => response.json())
+  .then(data => {
+    console.log('Summary received:', data);
+    setSummary(data);
+  })
+  .catch(error => {
+    console.error('Summary error:', error);
+  });
 
   fetch('http://localhost:3000/org/architecture-score')
     .then(response => {
@@ -24,11 +36,17 @@ function App() {
 }, []);
 
   return (
-    <div>
-      <h1>OmniSphereAI Dashboard</h1>
+  <div className="container">
 
-      {score ? (
-        <div>
+    <h1 className="title">
+      OmniSphereAI Dashboard
+    </h1>
+
+    <div className="cards">
+
+      {score && (
+        <div className="card">
+
           <h2>Architecture Score</h2>
 
           <p>
@@ -48,12 +66,42 @@ function App() {
             Medium Risk Objects:
             {score.riskSummary.mediumRiskCount}
           </p>
+
         </div>
-      ) : (
-        <p>Loading...</p>
       )}
+
+      {summary && (
+        <div className="card">
+
+          <h2>Org Summary</h2>
+
+          <p>
+            Total Objects:
+            {summary.totalObjects}
+          </p>
+
+          <p>
+            Average Fields:
+            {summary.averageFieldsPerObject}
+          </p>
+
+          <p>
+            Largest Object:
+            {summary.largestObject.name}
+          </p>
+
+          <p>
+            Field Count:
+            {summary.largestObject.fieldCount}
+          </p>
+
+        </div>
+      )}
+
     </div>
-  );
+
+  </div>
+);
 }
 
 export default App;
