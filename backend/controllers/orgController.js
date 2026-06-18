@@ -122,12 +122,21 @@ exports.getRelationshipSummary =
                 mostConnectedObject.relationshipCount
             ) {
 
-                mostConnectedObject = {
-                    name:
-                        object.QualifiedApiName,
-                    relationshipCount:
-                        count
-                };
+                let riskLevel = 'Low';
+
+if (count >= 8) {
+    riskLevel = 'High';
+} else if (count >= 4) {
+    riskLevel = 'Medium';
+}
+
+mostConnectedObject = {
+    name:
+        object.QualifiedApiName,
+    relationshipCount:
+        count,
+    riskLevel
+};
             }
         }
 
@@ -136,6 +145,145 @@ exports.getRelationshipSummary =
             objectsAnalyzed:
                 objects.length,
             mostConnectedObject
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+};
+
+exports.getRiskReport = async (req, res) => {
+
+    try {
+
+        const objectsResult =
+            await metadataService.getObjects();
+
+        const objects =
+            objectsResult.result.records.slice(0, 20);
+
+        const highRiskObjects = [];
+        const mediumRiskObjects = [];
+        const lowRiskObjects = [];
+
+        for (const object of objects) {
+
+            const count =
+                await metadataService
+                    .getRelationshipCountForObject(
+                        object.QualifiedApiName
+                    );
+
+            const objectInfo = {
+                name: object.QualifiedApiName,
+                relationshipCount: count
+            };
+
+            if (count >= 8) {
+
+                highRiskObjects.push(
+                    objectInfo
+                );
+
+            } else if (count >= 4) {
+
+                mediumRiskObjects.push(
+                    objectInfo
+                );
+
+            } else {
+
+                lowRiskObjects.push(
+                    objectInfo
+                );
+            }
+        }
+
+        res.json({
+            success: true,
+            objectsAnalyzed: objects.length,
+            highRiskObjects,
+            mediumRiskObjects,
+            lowRiskObjects
+        });
+
+    } catch (error) {
+
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+
+    }
+};
+
+exports.getArchitectureScore = async (req, res) => {
+
+    try {
+
+        const objectsResult =
+            await metadataService.getObjects();
+
+        const objects =
+            objectsResult.result.records.slice(0, 20);
+
+        let highRiskCount = 0;
+        let mediumRiskCount = 0;
+
+        for (const object of objects) {
+
+            const count =
+                await metadataService
+                    .getRelationshipCountForObject(
+                        object.QualifiedApiName
+                    );
+
+            if (count >= 8) {
+
+                highRiskCount++;
+
+            } else if (count >= 4) {
+
+                mediumRiskCount++;
+            }
+        }
+
+        let architectureScore =
+            100 -
+            (highRiskCount * 5) -
+            (mediumRiskCount * 2);
+
+        if (architectureScore < 0) {
+            architectureScore = 0;
+        }
+
+        let grade = 'A';
+
+        if (architectureScore < 90) {
+            grade = 'B';
+        }
+
+        if (architectureScore < 80) {
+            grade = 'C';
+        }
+
+        if (architectureScore < 70) {
+            grade = 'D';
+        }
+
+        res.json({
+            success: true,
+            architectureScore,
+            grade,
+            riskSummary: {
+                highRiskCount,
+                mediumRiskCount
+            }
         });
 
     } catch (error) {

@@ -11,4 +11,14 @@ router.get(
     orgController.getRelationshipSummary
 );
 
+router.get(
+    '/org/risk-report',
+    orgController.getRiskReport
+);
+
+router.get(
+    '/org/architecture-score',
+    orgController.getArchitectureScore
+);
+
 module.exports = router;
