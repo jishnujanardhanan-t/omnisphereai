@@ -10,6 +10,9 @@ const PORT = 3000;
 // Import routes
 const objectRoutes = require('./routes/objectRoutes');
 
+const orgRoutes = require('./routes/orgRoutes');
+
+app.use('/', orgRoutes);
 app.use('/', objectRoutes);
 app.use('/', metadataRoutes);
 

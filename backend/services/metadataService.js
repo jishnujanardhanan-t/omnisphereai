@@ -4,7 +4,7 @@ function getObjects() {
     return new Promise((resolve, reject) => {
 
         const command =
-            `sf data query --query "SELECT QualifiedApiName FROM EntityDefinition LIMIT 20" --target-org ${process.env.SF_USERNAME} --json`;
+            `sf data query --query "SELECT QualifiedApiName FROM EntityDefinition LIMIT 300" --target-org ${process.env.SF_USERNAME} --json`;
 
         exec(command, (error, stdout, stderr) => {
 
@@ -46,7 +46,55 @@ function getObjectFields(objectName) {
     });
 }
 
+function getCustomObjects() {
+
+    return new Promise((resolve, reject) => {
+
+        const command =
+            `sf data query --query "SELECT QualifiedApiName FROM EntityDefinition WHERE QualifiedApiName LIKE '%__c' LIMIT 300" --target-org ${process.env.SF_USERNAME} --json`;
+
+        exec(command, (error, stdout) => {
+
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            try {
+                resolve(JSON.parse(stdout));
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+}
+
+function getFieldCountForObject(objectName) {
+    return new Promise((resolve, reject) => {
+
+        const command =
+            `sf data query --query "SELECT COUNT() FROM FieldDefinition WHERE EntityDefinition.QualifiedApiName = '${objectName}'" --target-org ${process.env.SF_USERNAME} --json`;
+
+        exec(command, (error, stdout) => {
+
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            try {
+                const result = JSON.parse(stdout);
+                resolve(result);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+}
+
 module.exports = {
     getObjects,
-    getObjectFields
+    getObjectFields,
+    getCustomObjects,
+    getFieldCountForObject
 };
