@@ -5,103 +5,85 @@ function App() {
 
   const [score, setScore] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [relationships, setRelationships] = useState(null);
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
 
-  console.log('Starting fetch...');
+    setLoading(true);
 
-fetch('http://localhost:3000/org/summary')
-  .then(response => response.json())
-  .then(data => {
-    console.log('Summary received:', data);
-    setSummary(data);
-  })
-  .catch(error => {
-    console.error('Summary error:', error);
-  });
+    Promise.all([
+      fetch('http://localhost:3000/org/summary').then(res => res.json()),
+      fetch('http://localhost:3000/org/architecture-score').then(res => res.json()),
+      fetch('http://localhost:3000/org/relationships').then(res => res.json())
+    ])
+    .then(([summaryData, scoreData, relationshipData]) => {
 
-  fetch('http://localhost:3000/org/architecture-score')
-    .then(response => {
-      console.log('Response received:', response);
-      return response.json();
-    })
-    .then(data => {
-      console.log('Data received:', data);
-      setScore(data);
+      setSummary(summaryData);
+      setScore(scoreData);
+      setRelationships(relationshipData);
+
     })
     .catch(error => {
-      console.error('Fetch error:', error);
+      console.error('Dashboard error:', error);
+    })
+    .finally(() => {
+      setLoading(false);
     });
 
-}, []);
+  }, []);
 
   return (
-  <div className="container">
+    <div className="container">
 
-    <h1 className="title">
-      OmniSphereAI Dashboard
-    </h1>
+      <h1 className="title">
+        OmniSphereAI Dashboard
+      </h1>
 
-    <div className="cards">
-
-      {score && (
-        <div className="card">
-
-          <h2>Architecture Score</h2>
-
-          <p>
-            Score: {score.architectureScore}
-          </p>
-
-          <p>
-            Grade: {score.grade}
-          </p>
-
-          <p>
-            High Risk Objects:
-            {score.riskSummary.highRiskCount}
-          </p>
-
-          <p>
-            Medium Risk Objects:
-            {score.riskSummary.mediumRiskCount}
-          </p>
-
+      {loading && (
+        <div className="loading">
+          Loading dashboard data...
         </div>
       )}
 
-      {summary && (
-        <div className="card">
+      {!loading && (
+        <div className="cards">
 
-          <h2>Org Summary</h2>
+          {score && (
+            <div className="card">
+              <h2>Architecture Score</h2>
+              <p>Score: {score.architectureScore}</p>
+              <p>Grade: {score.grade}</p>
+              <p>High Risk Objects: {score.riskSummary.highRiskCount}</p>
+              <p>Medium Risk Objects: {score.riskSummary.mediumRiskCount}</p>
+            </div>
+          )}
 
-          <p>
-            Total Objects:
-            {summary.totalObjects}
-          </p>
+          {relationships && (
+            <div className="card">
+              <h2>Relationship Analysis</h2>
+              <p>Most Connected: {relationships.mostConnectedObject.name}</p>
+              <p>Relationships: {relationships.mostConnectedObject.relationshipCount}</p>
+              <p>Risk Level: {relationships.mostConnectedObject.riskLevel}</p>
+            </div>
+          )}
 
-          <p>
-            Average Fields:
-            {summary.averageFieldsPerObject}
-          </p>
-
-          <p>
-            Largest Object:
-            {summary.largestObject.name}
-          </p>
-
-          <p>
-            Field Count:
-            {summary.largestObject.fieldCount}
-          </p>
+          {summary && (
+            <div className="card">
+              <h2>Org Summary</h2>
+              <p>Total Objects: {summary.totalObjects}</p>
+              <p>Average Fields: {summary.averageFieldsPerObject}</p>
+              <p>Largest Object: {summary.largestObject.name}</p>
+              <p>Field Count: {summary.largestObject.fieldCount}</p>
+            </div>
+          )}
 
         </div>
       )}
 
     </div>
-
-  </div>
-);
+  );
 }
 
 export default App;

@@ -7,7 +7,7 @@ exports.getSummary = async (req, res) => {
         const objectsResult = await metadataService.getObjects();
 
         const objects =
-            objectsResult.result.records.slice(0, 20);
+            objectsResult.result.records.slice(0, 5);
 
         let totalFieldCount = 0;
 
@@ -17,6 +17,10 @@ exports.getSummary = async (req, res) => {
         };
 
         for (const object of objects) {
+            console.log(
+    'Summary analyzing:',
+    object.QualifiedApiName
+);
 
             const objectName =
                 object.QualifiedApiName;
@@ -102,7 +106,7 @@ exports.getRelationshipSummary =
 
         const objects =
             objectsResult.result.records
-                .slice(0, 20);
+                .slice(0, 5);
 
         let mostConnectedObject = {
             name: '',
@@ -110,6 +114,10 @@ exports.getRelationshipSummary =
         };
 
         for (const object of objects) {
+            console.log(
+    'Relationship analyzing:',
+    object.QualifiedApiName
+);
 
             const count =
                 await metadataService
@@ -165,13 +173,17 @@ exports.getRiskReport = async (req, res) => {
             await metadataService.getObjects();
 
         const objects =
-            objectsResult.result.records.slice(0, 20);
+            objectsResult.result.records.slice(0, 5);
 
         const highRiskObjects = [];
         const mediumRiskObjects = [];
         const lowRiskObjects = [];
 
         for (const object of objects) {
+            console.log(
+    'Risk analyzing:',
+    object.QualifiedApiName
+);
 
             const count =
                 await metadataService
@@ -230,12 +242,16 @@ exports.getArchitectureScore = async (req, res) => {
             await metadataService.getObjects();
 
         const objects =
-            objectsResult.result.records.slice(0, 20);
+            objectsResult.result.records.slice(0, 5);
 
         let highRiskCount = 0;
         let mediumRiskCount = 0;
 
         for (const object of objects) {
+            console.log(
+    'Architecture analyzing:',
+    object.QualifiedApiName
+);
 
             const count =
                 await metadataService
