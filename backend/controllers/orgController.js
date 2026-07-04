@@ -1,13 +1,38 @@
 const metadataService = require('../services/metadataService');
+const cache = require('../cache/orgCache');
+
+function getRiskLevel(count) {
+    if (count >= 8) return 'High';
+    if (count >= 4) return 'Medium';
+    return 'Low';
+}
 
 exports.getSummary = async (req, res) => {
 
     try {
 
-        const objectsResult = await metadataService.getObjects();
+        const cached = cache.getCache();
+
+        if (cached.summary && cache.isCacheValid()) {
+            return res.json(cached.summary);
+        }
+
+        const objectsResult =
+            await metadataService.getObjects();
 
         const objects =
-            objectsResult.result.records.slice(0, 5);
+            objectsResult.result.records.slice(0, 20);
+
+        const fieldResults =
+            await Promise.all(
+
+                objects.map(object =>
+                    metadataService.getObjectFields(
+                        object.QualifiedApiName
+                    )
+                )
+
+            );
 
         let totalFieldCount = 0;
 
@@ -16,35 +41,27 @@ exports.getSummary = async (req, res) => {
             fieldCount: 0
         };
 
-        for (const object of objects) {
-            console.log(
-    'Summary analyzing:',
-    object.QualifiedApiName
-);
-
-            const objectName =
-                object.QualifiedApiName;
-
-            const fieldResult =
-                await metadataService.getObjectFields(
-                    objectName
-                );
+        fieldResults.forEach((result, index) => {
 
             const fieldCount =
-                fieldResult.result.records.length;
+                result.result.records.length;
 
             totalFieldCount += fieldCount;
 
-            if (
-                fieldCount >
-                largestObject.fieldCount
-            ) {
+            if (fieldCount > largestObject.fieldCount) {
+
                 largestObject = {
-                    name: objectName,
+
+                    name:
+                        objects[index].QualifiedApiName,
+
                     fieldCount
+
                 };
+
             }
-        }
+
+        });
 
         const averageFieldsPerObject =
             Math.round(
@@ -53,170 +70,182 @@ exports.getSummary = async (req, res) => {
 
         let healthScore = 100;
 
-        if (averageFieldsPerObject > 40) {
+        if (averageFieldsPerObject > 40)
             healthScore -= 10;
-        }
 
         const recommendations = [];
 
-if (averageFieldsPerObject > 40) {
-    recommendations.push(
-        'Average field count is high. Review object complexity.'
-    );
-} else {
-    recommendations.push(
-        'Field complexity is within acceptable limits.'
-    );
-}
+        if (averageFieldsPerObject > 40) {
 
-if (largestObject.fieldCount > 35) {
-    recommendations.push(
-        `${largestObject.name} has a high field count (${largestObject.fieldCount} fields).`
-    );
-}
+            recommendations.push(
+                'Average field count is high. Review object complexity.'
+            );
 
-        res.json({
-    success: true,
-    totalObjects: objectsResult.result.records.length,
-    objectsAnalyzed: objects.length,
-    analysisScope: 'First 20 objects',
-    averageFieldsPerObject,
-    largestObject,
-    healthScore,
-    recommendations
-});
+        } else {
 
-    } catch (error) {
+            recommendations.push(
+                'Field complexity is within acceptable limits.'
+            );
 
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-
-    }
-};
-
-exports.getRelationshipSummary =
-    async (req, res) => {
-
-    try {
-
-        const objectsResult =
-            await metadataService.getObjects();
-
-        const objects =
-            objectsResult.result.records
-                .slice(0, 5);
-
-        let mostConnectedObject = {
-            name: '',
-            relationshipCount: 0
-        };
-
-        for (const object of objects) {
-            console.log(
-    'Relationship analyzing:',
-    object.QualifiedApiName
-);
-
-            const count =
-                await metadataService
-                    .getRelationshipCountForObject(
-                        object.QualifiedApiName
-                    );
-
-            if (
-                count >
-                mostConnectedObject.relationshipCount
-            ) {
-
-                let riskLevel = 'Low';
-
-if (count >= 8) {
-    riskLevel = 'High';
-} else if (count >= 4) {
-    riskLevel = 'Medium';
-}
-
-mostConnectedObject = {
-    name:
-        object.QualifiedApiName,
-    relationshipCount:
-        count,
-    riskLevel
-};
-            }
         }
 
-        res.json({
+        if (largestObject.fieldCount > 35) {
+
+            recommendations.push(
+                `${largestObject.name} has a high field count (${largestObject.fieldCount} fields).`
+            );
+
+        }
+
+        const response = {
+
             success: true,
+
+            totalObjects:
+                objectsResult.result.records.length,
+
             objectsAnalyzed:
                 objects.length,
-            mostConnectedObject
+
+            analysisScope:
+                'First 20 objects',
+
+            averageFieldsPerObject,
+
+            largestObject,
+
+            healthScore,
+
+            recommendations
+
+        };
+
+        cache.setCache({
+            summary: response
         });
 
-    } catch (error) {
+        return res.json(response);
 
-        res.status(500).json({
+    }
+
+    catch (error) {
+
+        return res.status(500).json({
+
             success: false,
+
             message: error.message
+
         });
 
     }
+
+};
+
+exports.getRelationshipSummary = async (req, res) => {
+  try {
+
+    const cache = require('../cache/orgCache').getCache();
+
+    const objects = cache.fullMetadata?.objects;
+    const metadata = cache.fullMetadata?.metadata;
+
+    if (!objects || !metadata) {
+      return res.status(503).json({
+        success: false,
+        message: "Cache not ready"
+      });
+    }
+
+    let mostConnectedObject = {
+      name: '',
+      relationshipCount: 0,
+      riskLevel: 'Low'
+    };
+
+    metadata.forEach((result, index) => {
+
+      const fields = result.result.records;
+
+      const count = fields.filter(f =>
+        f.DataType.includes('Lookup') ||
+        f.DataType.includes('Hierarchy')
+      ).length;
+
+      let riskLevel = 'Low';
+      if (count >= 8) riskLevel = 'High';
+      else if (count >= 4) riskLevel = 'Medium';
+
+      if (count > mostConnectedObject.relationshipCount) {
+        mostConnectedObject = {
+          name: objects[index].QualifiedApiName,
+          relationshipCount: count,
+          riskLevel
+        };
+      }
+    });
+
+    res.json({
+      success: true,
+      objectsAnalyzed: objects.length,
+      mostConnectedObject
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 exports.getRiskReport = async (req, res) => {
 
     try {
 
-        const objectsResult =
-            await metadataService.getObjects();
+        const cached = cache.getCache();
 
-        const objects =
-            objectsResult.result.records.slice(0, 5);
+        const objects = cached.fullMetadata?.objects;
+        const metadata = cached.fullMetadata?.metadata;
+
+        if (!objects || !metadata) {
+            return res.status(503).json({
+                success: false,
+                message: 'Cache not ready'
+            });
+        }
 
         const highRiskObjects = [];
         const mediumRiskObjects = [];
         const lowRiskObjects = [];
 
-        for (const object of objects) {
-            console.log(
-    'Risk analyzing:',
-    object.QualifiedApiName
-);
+        metadata.forEach((result, index) => {
 
-            const count =
-                await metadataService
-                    .getRelationshipCountForObject(
-                        object.QualifiedApiName
-                    );
+            const fields = result.result.records;
+
+            const relationshipCount = fields.filter(field =>
+                field.DataType.includes('Lookup') ||
+                field.DataType.includes('Hierarchy')
+            ).length;
 
             const objectInfo = {
-                name: object.QualifiedApiName,
-                relationshipCount: count
+                name: objects[index].QualifiedApiName,
+                relationshipCount
             };
 
-            if (count >= 8) {
+            const riskLevel = getRiskLevel(relationshipCount);
 
-                highRiskObjects.push(
-                    objectInfo
-                );
-
-            } else if (count >= 4) {
-
-                mediumRiskObjects.push(
-                    objectInfo
-                );
-
+            if (riskLevel === 'High') {
+                highRiskObjects.push(objectInfo);
+            } else if (riskLevel === 'Medium') {
+                mediumRiskObjects.push(objectInfo);
             } else {
-
-                lowRiskObjects.push(
-                    objectInfo
-                );
+                lowRiskObjects.push(objectInfo);
             }
-        }
 
-        res.json({
+        });
+
+        return res.json({
             success: true,
             objectsAnalyzed: objects.length,
             highRiskObjects,
@@ -226,88 +255,70 @@ exports.getRiskReport = async (req, res) => {
 
     } catch (error) {
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message
         });
 
     }
+
 };
 
 exports.getArchitectureScore = async (req, res) => {
+  try {
 
-    try {
+    const cached = cache.getCache();
 
-        const objectsResult =
-            await metadataService.getObjects();
-
-        const objects =
-            objectsResult.result.records.slice(0, 5);
-
-        let highRiskCount = 0;
-        let mediumRiskCount = 0;
-
-        for (const object of objects) {
-            console.log(
-    'Architecture analyzing:',
-    object.QualifiedApiName
-);
-
-            const count =
-                await metadataService
-                    .getRelationshipCountForObject(
-                        object.QualifiedApiName
-                    );
-
-            if (count >= 8) {
-
-                highRiskCount++;
-
-            } else if (count >= 4) {
-
-                mediumRiskCount++;
-            }
-        }
-
-        let architectureScore =
-            100 -
-            (highRiskCount * 5) -
-            (mediumRiskCount * 2);
-
-        if (architectureScore < 0) {
-            architectureScore = 0;
-        }
-
-        let grade = 'A';
-
-        if (architectureScore < 90) {
-            grade = 'B';
-        }
-
-        if (architectureScore < 80) {
-            grade = 'C';
-        }
-
-        if (architectureScore < 70) {
-            grade = 'D';
-        }
-
-        res.json({
-            success: true,
-            architectureScore,
-            grade,
-            riskSummary: {
-                highRiskCount,
-                mediumRiskCount
-            }
-        });
-
-    } catch (error) {
-
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-
+    if (cached.architecture && cache.isCacheValid()) {
+      return res.json(cached.architecture);
     }
+
+    const objectsResult = await metadataService.getObjects();
+
+    const objects = objectsResult.result.records.slice(0, 20);
+
+    const counts = await Promise.all(
+      objects.map(obj =>
+        metadataService.getRelationshipCountForObject(obj.QualifiedApiName)
+      )
+    );
+
+    let highRiskCount = 0;
+    let mediumRiskCount = 0;
+
+    counts.forEach(count => {
+      if (count >= 8) highRiskCount++;
+      else if (count >= 4) mediumRiskCount++;
+    });
+
+    let architectureScore =
+      100 - (highRiskCount * 5) - (mediumRiskCount * 2);
+
+    if (architectureScore < 0) architectureScore = 0;
+
+    let grade = 'A';
+    if (architectureScore < 90) grade = 'B';
+    if (architectureScore < 80) grade = 'C';
+    if (architectureScore < 70) grade = 'D';
+
+    const response = {
+      success: true,
+      architectureScore,
+      grade,
+      riskSummary: {
+        highRiskCount,
+        mediumRiskCount
+      }
+    };
+
+    cache.setCache({ architecture: response });
+
+    return res.json(response);
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
